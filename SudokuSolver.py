@@ -202,7 +202,7 @@ class BacktrackSolver():
 ### Functions for reading sodoku boards from files ###
 
 def mapSquares(s):
-    ''' convert the character s to an integer. * are converted to 0, indicating a vacant element'''
+    ''' convert the character s to an integer. * are converted to 0, indicating a vacant element. Letters from A and onwards are convert to integers starting from 10'''
     if s == '*':
         return 0
     try:
@@ -212,7 +212,8 @@ def mapSquares(s):
 
 
 def loadSudoku(path):
-    '''read a textfile containing a sodoku board and return a sodoku board object'''
+    '''read a textfile containing a sodoku board and return a sodoku board object.
+    The textfile must have a row of numbers/letters on each line and columbs separated by spaces.'''
     with open(path) as f:
         data = []
 
