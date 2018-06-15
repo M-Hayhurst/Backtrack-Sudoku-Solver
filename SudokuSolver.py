@@ -10,11 +10,11 @@ import argparse
 class Board():
     '''
     Class for storing sodoku puzzle, inserting and popping numbers and checking if the inserted numbers are consistent.
-    The Sodoku board is represented as a numpy matrix where 0 indicates an empty square.
+    The Sudoku board is represented as a numpy matrix where 0 indicates an empty square.
 
-    In a Sodoku each digit must only appear once in its row, coloum and "square". 
+    In a Sudoku each digit must only appear once in its row, coloum and "square". 
 
-    A common idea in this class to to 1 index vectors so that the numbers appering in Sodokus (1 to n) can be used as indicies.
+    A common idea in this class to to 1 index vectors so that the numbers appering in Sudokus (1 to n) can be used as indicies.
     '''
 
     def __init__(self, data, nRows):
@@ -47,7 +47,7 @@ class Board():
 
     def printBoard(self):
         '''print board in console'''
-        print('%d*%d Sodoku board:'%(self.nRows, self.nRows))
+        print('%d*%d Sudoku board:'%(self.nRows, self.nRows))
         print(self.data)
 
 
@@ -136,7 +136,7 @@ class BacktrackSolver():
 
     def solve(self, vacListMethod=1):
         '''
-        Solve the Sodoku board store in self.board using a backtrack algorithm
+        Solve the Sudoku board store in self.board using a backtrack algorithm
         '''
 
         # generate list of vacant Squares
@@ -211,7 +211,7 @@ def mapSquares(s):
         return ord(s) - 65 + 10
 
 
-def loadSodoku(path):
+def loadSudoku(path):
     '''read a textfile containing a sodoku board and return a sodoku board object'''
     with open(path) as f:
         data = []
@@ -227,13 +227,13 @@ def loadSodoku(path):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Load a Sodoku puzzle from a .txt file')
+    parser = argparse.ArgumentParser(description='Load a Sudoku puzzle from a .txt file')
     parser.add_argument('filepath', type=str,
                    help='The file path of the .txt file')
     filePath = parser.parse_args().filepath
 
-    print('Loading Sodoku puzzle from %s.'%filePath)
+    print('Loading Sudoku puzzle from %s.'%filePath)
 
-    board = loadSodoku(filePath)
+    board = loadSudoku(filePath)
     solver = BacktrackSolver(board)
     solver.solve()
