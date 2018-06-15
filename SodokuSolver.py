@@ -4,20 +4,28 @@ I have NOT at all studied how real solvers are constructed'''
 import numpy as np
 import collections
 import copy
+import argparse
 
 
 class Board():
-    '''class for keeping track of sodoku puzzle, inserting numbers and checking validity of numbers'''
+    '''
+    Class for storing sodoku puzzle, inserting and popping numbers and checking if the inserted numbers are consistent.
+    The Sodoku board is represented as a numpy matrix where 0 indicates an empty square.
 
-    def __init__(self, data, dimension):
-        # initialise board based np matrix
+    In a Sodoku each digit must only appear once in its row, coloum and "square". 
+
+    A common idea in this class to to 1 index vectors so that the numbers appering in Sodokus (1 to n) can be used as indicies.
+    '''
+
+    def __init__(self, data, nRows):
+        # initialise board based on np matrix
         self.data = data
-        self.dimension = dimension
-        self.nRows = dimension**2
+        self.nRows = nRows
+        self.dimension = int(np.sqrt(nRows))
         self.valList = list(range(1, self.nRows+1))
 
-        # generate list of lists (represented as matrix) telling if the i'th row, col or square contains number n
-        # we add to the second dimension so we can index via the number on the board (1 indexing)
+        # generate lists of boolean arrays (represented as matrix) telling if the i'th row, col or square contains digit n
+        # add 1 to the second dimension so we can index via the number on the board (1 indexing)
         self.rowContains = np.zeros((self.nRows, self.nRows+1), dtype=bool)
         self.colContains = np.zeros((self.nRows, self.nRows+1), dtype=bool)
         self.sqrContains = np.zeros((self.nRows, self.nRows+1), dtype=bool)
@@ -29,11 +37,17 @@ class Board():
                 if val>0:
                     self.rowContains[iRow, val] = True
                     self.colContains[iCol, val] = True
-                    self.sqrContains[(iRow//self.dimension)*self.dimension + (iCol//self.dimension), val] = True
+                    self.sqrContains[self.cordToSquare((iRow, iCol)), val] = True
+
+
+    def cordToSquare(self, cord):
+        '''returns the square index for the square which contains the matrix element with the coordinate cord'''
+        return (cord[0] // self.dimension) * self.dimension + (cord[1] // self.dimension)
 
 
     def printBoard(self):
         '''print board in console'''
+        print('%d*%d Sodoku board:'%(self.nRows, self.nRows))
         print(self.data)
 
 
@@ -42,7 +56,7 @@ class Board():
         self.data[cord] = val
         self.rowContains[cord[0], val] = True
         self.colContains[cord[1], val] = True
-        self.sqrContains[(cord[0] // self.dimension) * self.dimension + (cord[1] // self.dimension), val] = True
+        self.sqrContains[self.cordToSquare(cord), val] = True
 
 
     def popNumber(self, cord):
@@ -53,7 +67,7 @@ class Board():
         # adjust the occupation lists based on the deletion
         self.rowContains[cord[0], curVal] = False
         self.colContains[cord[1], curVal] = False
-        self.sqrContains[(cord[0] // self.dimension) * self.dimension + (cord[1] // self.dimension), curVal] = False
+        self.sqrContains[self.cordToSquare(cord), curVal] = False
 
 
     def isAllowed(self, cord, val):
@@ -61,7 +75,7 @@ class Board():
         if self.data[cord] > 0: # this check is superficial for certain solvers
             print('square taken')
             return False
-        return (not self.rowContains[cord[0], val]) and (not self.colContains[cord[1], val]) and (not self.sqrContains[(cord[0]//self.dimension)*self.dimension + (cord[1]//self.dimension), val])
+        return (not self.rowContains[cord[0], val]) and (not self.colContains[cord[1], val]) and (not self.sqrContains[self.cordToSquare(cord), val])
 
 
     def getAllowed(self, cord):
@@ -72,7 +86,7 @@ class Board():
 
 
 class BacktrackSolver():
-    '''backtracking algorithm for solving sodoku'''
+    '''Backtracking algorithm for solving sodoku'''
 
     def __init__(self, board):
         self.board = board # takes a Board object
@@ -85,19 +99,22 @@ class BacktrackSolver():
     def reset(self):
         self.board = copy.deepcopy(self.inputBoard)
 
-    def getVacantList(self, priority = True):
-        '''return list of coordinates for empty squares'''
+
+    def getVacantList(self, method=1):
+        '''return list of coordinates for empty squares.
+        Different methods give different ordering of the list.'''
         vacList = []
 
         # method 1, return list of vacant squares in order of transversing one row at a time from top to bottom
-        if not priority:
+        if method==1:
             for iRow in range(self.nRows):
                 for iCol in range(self.nRows):
                     if self.board.data[iRow, iCol] == 0:
                         vacList.append((iRow, iCol))
 
-        # method 2, return a list of vacant squares sorted so the squares with most (!) possible options appear first
-        else:
+        # method 2, return a list of vacant squares sorted so the squares with least (!) possible options appear first
+        # this method turns out to be inferior
+        elif method==2:
             nAllowed = []
             for iRow in range(self.nRows):
                 for iCol in range(self.nRows):
@@ -108,17 +125,22 @@ class BacktrackSolver():
                         nAllowed.append(len(self.board.getAllowed(cord)))
 
             # do the sorting
-            print(sorted(zip(nAllowed, vacList)))
-            vacList = [x for _,x in sorted(zip(nAllowed, vacList), reverse=True)]
+            vacList = [x for _,x in sorted(zip(nAllowed, vacList), reverse=False)]
             print(vacList)
+
+        else:
+            raise Exception('Requested method for getVacantList does not exist')
 
         return vacList
 
 
-    def solve(self, usePriority = True):
+    def solve(self, vacListMethod=1):
+        '''
+        Solve the Sodoku board store in self.board using a backtrack algorithm
+        '''
 
         # generate list of vacant Squares
-        vacList = self.getVacantList(priority = usePriority)
+        vacList = self.getVacantList(method = vacListMethod)
         nVacs = len(vacList)  # count the number of vacant squares
 
         # initiate a stack for the history of added numbers
@@ -142,12 +164,10 @@ class BacktrackSolver():
             foundAllowed = False # indicates if we have found a value allowed in the square being considered
 
             while n < self.nRows + 1:  # run from starting value up to n rows
-                #print('Testing %d in (%d,%d)' % (n, curCord[0], curCord[1]))
                 nQueries += 1
 
                 if self.board.isAllowed(curCord, n):
                     self.board.addNumber(curCord, n)
-                    #print('Inserting %d in (%d,%d)' % (n, curCord[0], curCord[1]))
                     histStack.append(n)
                     foundAllowed = True
                     break
@@ -157,32 +177,32 @@ class BacktrackSolver():
                 
                 iVac += 1 # move to next square
                 
-                if iVac>nSolvedMax:
+                if iVac>nSolvedMax: # keep track of the highest number of filled squares so far
                     nSolvedMax += 1
-                    print(iVac)
                 if iVac < nVacs: # check there are still vacant squares to fill. Without this check the very final itteration gives an index out of bounds error
                     curCord = vacList[iVac]
                     n = 1 # reset value guess
 
-                #self.board.printBoard()
 
             if not foundAllowed:
                 # now we need to back track
-                #print('Backtracking!')
+                # print('Backtracking!')
                 self.board.popNumber(vacList[iVac-1]) # remove the last value added
                 iVac -= 1
                 curCord = vacList[iVac]
                 n = histStack.pop() + 1 # begin n guess one above the previously inserted value. Key part of backtracking algorithm
                 nBacktracks += 1
 
-                #self.board.printBoard()
 
-        self.board.printBoard()
         print('\nBoard solved with %d queries and %d backtracks'%(nQueries, nBacktracks))
+        self.board.printBoard()
+        
 
 
+### Functions for reading sodoku boards from files ###
 
 def mapSquares(s):
+    ''' convert the character s to an integer. * are converted to 0, indicating a vacant element'''
     if s == '*':
         return 0
     try:
@@ -200,14 +220,20 @@ def loadSodoku(path):
             data.append([mapSquares(s) for s in line.strip().split(' ')])
 
     npdata = np.array(data, dtype = int)
-    dimension = int(np.sqrt(npdata.shape[0]))
+    assert(npdata.shape[0] == npdata.shape[1]) # check that the matrix is square
 
-    return Board(npdata, dimension)
+    return Board(npdata, npdata.shape[0])
 
 
 if __name__ == '__main__':
 
-    testBoard = loadSodoku('Sodoku_3x3_easy.txt')
+    parser = argparse.ArgumentParser(description='Load a Sodoku puzzle from a .txt file')
+    parser.add_argument('filepath', type=str,
+                   help='The file path of the .txt file')
+    filePath = parser.parse_args().filepath
 
-    s = BacktrackSolver(testBoard)
-    s.solve(usePriority=False)
+    print('Loading Sodoku puzzle from %s.'%filePath)
+
+    board = loadSodoku(filePath)
+    solver = BacktrackSolver(board)
+    solver.solve()
